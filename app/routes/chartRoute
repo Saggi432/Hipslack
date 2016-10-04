@@ -1,0 +1,112 @@
+var multer  =   require('multer');
+var bodyParser = require('body-parser');
+
+var fs = require('fs');
+var mongoose = require('mongoose');
+
+
+var Transactions = require('../models/AmxDataViews');
+
+module.exports = function(app) {
+
+app.use(bodyParser.urlencoded({ extended: false }))
+
+app.use(bodyParser.json())
+
+ app.get('/api/data', function(req, res) {
+  // use mongoose to get data
+  Transactions.find({}, {'_id': 0, 'state': 1, 'spending_type': 1, 'income_level': 1, 'date_posted': 1, 'total_spendings': 1, 'age_group': 1}, function(err, transactionsDetails) {
+ 
+   if (err) 
+    res.send(err);
+    res.json(transactionsDetails);
+   });
+ });
+
+var storage =   multer.diskStorage({
+  destination: function (req, file, callback) {
+    callback(null, './uploads');
+  },
+  filename: function (req, file, callback) {
+    callback(null, file.fieldname + '-' + Date.now());
+  }
+});
+var upload = multer({ storage : storage}, {limits : {fieldNameSize : 1000}}).single('userData');
+
+
+
+
+
+ app.post('/api/upload',function(req,res){
+    upload(req,res,function(err) {
+        if(err) {
+            return res.end("Error uploading file.");
+        }
+        res.end("File is uploaded");
+	console.log("file is uploaded");
+	console.log(req.body.message.object_id);
+	console.log(req.body.message.object_type);
+	console.log(req.body.message.project.name);
+	console.log(req.body.message.detail_link);
+	var request = require("request");
+	var objectType = req.body.message.object_type;
+       
+
+//var options = { method: 'POST',
+ // url: 'https://hooks.slack.com/services/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',
+  //headers: 
+   //{ 
+    // 'content-type': 'application/json'},
+ // body:
+  //  {
+//	text: "The type of artifact modified is : objectType"
+ //   },
+  //json: true };
+
+request(
+	{
+	method: 'POST',
+	url: 'https://hooks.slack.com/services/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', 
+	body: 
+	    {
+		"text":req.body.message.object_type+" Changed to ="+"In Progress"+"\n"+"Project Name="+req.body.message.project.name+"\n"+"Change Link="+req.body.message.detail_link+"\n"
+
+	    },
+	json:true
+	},
+
+
+ function (error, response, body) {
+  if (error) { console.log("Error in posting");throw new Error(error)};
+
+  console.log("Posting to slack");
+ console.log(body);
+});
+
+
+request(
+        {
+        method: 'POST',
+        url: 'https://robin432.hipchat.com/v2/room/3082117/notification?auth_token=h4K9h1u8R1ZSmitM74IPgF0qtjjbBt7bAHUuOF9B',
+        body:
+           {
+		"color":"green",
+		"message":req.body.message.object_type+" Changed to = "+"In Progress"+"\n"+"Project Name="+req.body.message.project.name+"\n"+"Change Link="+req.body.message.detail_link+"\n",
+		"notify":true,
+		"message_format":"text"
+           },
+	json:true
+	},
+ 
+function (error, response, body) {
+  if (error) { console.log("Error in posting");throw new Error(error)};
+
+  console.log("Posting to slack");
+ console.log(body);
+});
+
+
+    });
+
+});
+}
